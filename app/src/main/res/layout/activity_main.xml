@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/osnova"
+    android:layout_width="fill_parent"
+
+    android:layout_height="fill_parent"
+    android:background="#e7e8ea"
+    android:contextClickable="true"
+    tools:context=".MainActivity">
+
+    <FrameLayout
+        android:id="@+id/ButPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#e7e7e5"
+        android:visibility="invisible">
+
+        <Button
+            android:id="@+id/ReconnectButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center|top"
+            android:onClick="onClickReconnect"
+            android:text="Reconnect"
+            android:textColor="@color/black"
+            app:backgroundTint="@color/white" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+            <!--
+                android:progressDrawable="@drawable/seekbar3"-->
+
+            <android.widget.VerticalSeekBar
+                android:id="@+id/vertical_Seekbar"
+                android:layout_width="30dp"
+                android:layout_height="match_parent"
+                android:layout_marginTop="50dp"
+                android:layout_marginBottom="50dp"
+                android:layout_weight="1"
+                android:max="9"
+                android:progress="0" />
+
+            <android.widget.VerticalSeekBar
+                android:id="@+id/vertical_Seekbar2"
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:layout_marginTop="50dp"
+                android:layout_marginBottom="50dp"
+                android:layout_weight="1"
+                android:max="9"
+                android:progress="0" />
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <ListView
+        android:id="@+id/pairedlist"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="18dp"
+
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="9dp"
+        android:visibility="visible">
+
+    </ListView>
+
+</RelativeLayout>
