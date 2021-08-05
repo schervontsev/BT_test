@@ -52,8 +52,10 @@ public class MainActivity extends AppCompatActivity {
 
     private byte[] comBuffer = new byte[5];
     private int comSize = 0;
+    byte valueA = 0;
+    byte valueB = 0;
 
-    public VerticalSeekBar barA, barB;
+    public VerticalSeekBar barA, barB, barFull;
 
 
     @Override
@@ -63,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
         barA = (VerticalSeekBar)findViewById(R.id.vertical_Seekbar);
         barB = (VerticalSeekBar)findViewById(R.id.vertical_Seekbar2);
+        barFull = (VerticalSeekBar)findViewById(R.id.vertical_SeekbarFull);
 
         listViewPairedDevice = (ListView)findViewById(R.id.pairedlist);
 
@@ -264,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
 
             //приветственная команда
             byte[] bytesToSend = "R0E0Q".getBytes();
-            write(bytesToSend );
+            write(bytesToSend);
 
             //это listener для слайдеров, будет получать управление когда мы их двигаем
             SeekBar.OnSeekBarChangeListener barCallback = new SeekBar.OnSeekBarChangeListener() {
@@ -281,22 +284,63 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress,boolean fromUser) {
+
                     //в этот метод попадаем когда поменялся прогресс на любом слайдере
-                    byte[] barAProgress = Integer.toString(barA.getProgress()).getBytes(StandardCharsets.US_ASCII);
-                    byte[] barBProgress = Integer.toString(barB.getProgress()).getBytes(StandardCharsets.US_ASCII);
-                    byte[] resultCom = new byte[5];
-                    resultCom[0] = 'A';
-                    resultCom[1] = barAProgress[0];
-                    resultCom[2] = 'B';
-                    resultCom[3] = barBProgress[0];
-                    resultCom[4] = 'Q';
-                    //отправляем команду
-                    write(resultCom);
+                    byte barAProgress = (byte)barA.getProgress();
+                    byte barBProgress = (byte)barB.getProgress();
+
+                    //отправляем команду только если значение поменялось
+                    if (barAProgress != valueA || barBProgress != valueB) {
+                        valueA = barAProgress;
+                        valueB = barBProgress;
+                        byte[] resultCom = new byte[5];
+                        resultCom[0] = 'A';
+                        resultCom[1] = barAProgress;
+                        resultCom[2] = 'B';
+                        resultCom[3] = barBProgress;
+                        resultCom[4] = 'Q';
+                        //отправляем команду
+                        write(resultCom);
+                    }
 
                 }
             };
             barA.setOnSeekBarChangeListener(barCallback);
             barB.setOnSeekBarChangeListener(barCallback);
+
+
+            //это listener для общего слайдера
+            SeekBar.OnSeekBarChangeListener barFullCallback = new SeekBar.OnSeekBarChangeListener() {
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                    // TODO Auto-generated method stub
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                    // TODO Auto-generated method stub
+                }
+
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress,boolean fromUser) {
+                    int val = barFull.getProgress();
+                    valueA = (byte)val;
+                    valueB = (byte)val;
+                    byte[] resultCom = new byte[5];
+                    resultCom[0] = 'A';
+                    resultCom[1] = valueA;
+                    resultCom[2] = 'B';
+                    resultCom[3] = valueB;
+                    resultCom[4] = 'Q';
+                    //отправляем команду
+                    write(resultCom);
+
+                    barA.setProgress(val);
+                    barB.setProgress(val);
+                }
+            };
+            barFull.setOnSeekBarChangeListener(barFullCallback);
         }
 
         private boolean CheckComPos(byte b, int pos) {
@@ -305,7 +349,7 @@ public class MainActivity extends AppCompatActivity {
                     return b == 'A';
                 case 1:
                 case 3:
-                    return b >= '0' && b <= '9';
+                    return b >= 0 && b <= 10;
                 case 2:
                     return b == 'B';
                 case 4:
@@ -317,30 +361,23 @@ public class MainActivity extends AppCompatActivity {
 
         //Проверяет валидность команды. Не проверяет границы массива!
         private boolean CheckCom(byte[] buffer) {
-            //формат: AxByQ
-            for (int i = 0; i < 5; i++) {
-                if (!CheckComPos(buffer[i], i)) {
-                    return false;
-                }
-            }
-            return true;
-            //TODO: более быстрый вариант, но скопированный код:
-//            return buffer[0] == 'A' && buffer[1] >= '0' && buffer[1] <= '9'
-//                    && buffer[2] == 'B' && buffer[3] >= '0' && buffer[3] <= '9'
-//                    && buffer[4] == 'Q';
+            return buffer[0] == 'A' && buffer[1] >= 0 && buffer[1] <= 10
+                    && buffer[2] == 'B' && buffer[3] >= 0 && buffer[3] <= 10
+                    && buffer[4] == 'Q';
         }
 
         //Выполняет команду
         private void ExecuteCom(byte[] com) {
             //формат: AxByQ
-            int a = Character.getNumericValue(com[1]);
-            int b = Character.getNumericValue(com[3]);
+            int a = valueA = com[1];
+            int b = valueB = com[3];
 
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     barA.setProgress(a);
                     barB.setProgress(b);
+                    EnableBars();
                 }
             });
             comSize = 0;
@@ -378,42 +415,6 @@ public class MainActivity extends AppCompatActivity {
                         comBuffer = buffer;
                         DisableBars();
                         ExecuteCom(comBuffer);
-                        EnableBars();
-                    } else {
-                        //на случай если данные пришли по кускам, будем собирать команду в несколько заходов
-                        //TODO: если такая ситуация невозможна, можно убрать этот else и сразу брать целиком buffer
-                        for (int i = 0; i < bytes; i++) {
-                            if (buffer[i] == 'A') {
-                                comBuffer[comSize] = buffer[i];
-                                //получили A, значит начало команды, сбрасываем всё что набрали
-                                comSize = 1;
-                                //и блочим управление
-                                DisableBars();
-                            } else if (CheckComPos(buffer[i], comSize)) {
-                                //пока команда сходится с форматом, пишем
-                                comBuffer[comSize] = buffer[i];
-                                //увеличили размер собранной команды
-                                comSize ++;
-                                //проверяем, не набрали ли команду целиком
-                                if (comSize == 5) {
-                                    //команда из 5 символов собралась
-                                    if (CheckCom(comBuffer)) {
-                                        ExecuteCom(comBuffer);
-                                    } else {
-                                        //Неверный формат! По идее такого не должно быть.
-                                        String strIncom = new String(comBuffer, 0, 5);
-                                        //Toast.makeText(MainActivity.this, "Wrong com! " + strIncom, Toast.LENGTH_LONG).show();
-                                    }
-                                    //сбросим сохранённый размер буфера
-                                    comSize = 0;
-                                    EnableBars();
-                                }
-                            } else {
-                                //команда не сходится, сбрасываем и возвращаем управление
-                                comSize = 0;
-                                EnableBars();
-                            }
-                        }
                     }
 
                     String strIncom = new String(buffer, 0, bytes);

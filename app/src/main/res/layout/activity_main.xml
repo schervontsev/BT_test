@@ -41,7 +41,7 @@
                 android:layout_marginTop="50dp"
                 android:layout_marginBottom="50dp"
                 android:layout_weight="1"
-                android:max="9"
+                android:max="10"
                 android:progress="0" />
 
             <android.widget.VerticalSeekBar
@@ -51,7 +51,24 @@
                 android:layout_marginTop="50dp"
                 android:layout_marginBottom="50dp"
                 android:layout_weight="1"
-                android:max="9"
+                android:max="10"
+                android:progress="0" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="50dp"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:layout_gravity="center">
+            <android.widget.VerticalSeekBar
+                android:id="@+id/vertical_SeekbarFull"
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:tag="hide"
+                android:layout_marginTop="50dp"
+                android:layout_marginBottom="50dp"
+                android:layout_weight="1"
+                android:max="10"
                 android:progress="0" />
         </LinearLayout>
 

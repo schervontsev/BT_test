@@ -20,6 +20,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 public class VerticalSeekBar extends SeekBar {
 
     private int size = 20;
+    Drawable myback;
 
     public VerticalSeekBar(Context context) {
         super(context);
@@ -50,7 +51,7 @@ public class VerticalSeekBar extends SeekBar {
 //        setThumb(thumb);
         //прячем переключатель
         setThumb(null);
-
+        String checkTag = (String) getTag();
         // поменять графику прогресса
 //        PaintDrawable progress = new PaintDrawable(Color.parseColor("#34495E"));
 //        progress.setCornerRadius(size);
@@ -58,7 +59,13 @@ public class VerticalSeekBar extends SeekBar {
 //        progress.setIntrinsicWidth(size);
 //        progress.setDither(true);
         //берём графику прогресса из текстуры barfull
-        Drawable myprogress = AppCompatResources.getDrawable(context, R.drawable.barfull);
+        Drawable myprogress;
+
+        if (checkTag != null) {
+            myprogress = AppCompatResources.getDrawable(context, android.R.color.transparent);
+        } else {
+            myprogress = AppCompatResources.getDrawable(context, R.drawable.barfull);
+        }
         ClipDrawable progressClip = new ClipDrawable(myprogress, Gravity.LEFT, ClipDrawable.HORIZONTAL);
 
         // secondary progress
@@ -71,15 +78,20 @@ public class VerticalSeekBar extends SeekBar {
         PaintDrawable background = new PaintDrawable(Color.parseColor("#EBEDEF"));
         background.setCornerRadius(size);
         background.setIntrinsicHeight(size);
-//        Drawable mybackground = AppCompatResources.getDrawable(context, R.drawable.barback);
-//        mybackground.setBounds(1,1,1,1);
+        Drawable mybackground;
+        if (checkTag != null) {
+            mybackground = AppCompatResources.getDrawable(context, android.R.color.transparent);
+        } else {
+            mybackground = AppCompatResources.getDrawable(context,  R.drawable.barempty1);
+        }
+        myback = AppCompatResources.getDrawable(context, R.drawable.barempty1);
 
         // применяем собранную графику
         LayerDrawable ld = (LayerDrawable) getProgressDrawable();
-        ld.setDrawableByLayerId(android.R.id.background, background);
+        ld.setDrawableByLayerId(android.R.id.background, mybackground);
         ld.setDrawableByLayerId(android.R.id.progress, progressClip);
 //        ld.setDrawableByLayerId(android.R.id.secondaryProgress, secondaryProgressClip);
-//        setProgress(50);
+        setProgress(50);
     }
 
     @Override
@@ -89,6 +101,7 @@ public class VerticalSeekBar extends SeekBar {
     }
 
     protected void onDraw(Canvas c) {
+        myback.draw(c);
         c.rotate(-90);
         c.translate(-getHeight(),0);
 
