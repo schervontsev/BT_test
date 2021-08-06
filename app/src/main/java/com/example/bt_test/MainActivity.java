@@ -16,9 +16,11 @@ import android.content.pm.PackageManager;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ListView;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import static android.R.layout.*;
 import android.widget.VerticalSeekBar;
+
+import org.w3c.dom.Text;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -48,7 +52,6 @@ public class MainActivity extends AppCompatActivity {
     ThreadConnectBTdevice myThreadConnectBTdevice;
     ThreadConnected myThreadConnected;
 
-    private StringBuilder sb = new StringBuilder();
 
     private byte[] comBuffer = new byte[5];
     private int comSize = 0;
@@ -56,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
     byte valueB = 0;
 
     public VerticalSeekBar barA, barB, barFull;
+    public TextView logView;
 
 
     @Override
@@ -66,6 +70,8 @@ public class MainActivity extends AppCompatActivity {
         barA = (VerticalSeekBar)findViewById(R.id.vertical_Seekbar);
         barB = (VerticalSeekBar)findViewById(R.id.vertical_Seekbar2);
         barFull = (VerticalSeekBar)findViewById(R.id.vertical_SeekbarFull);
+        logView = (TextView)findViewById(R.id.logView);
+
 
         listViewPairedDevice = (ListView)findViewById(R.id.pairedlist);
 
@@ -265,9 +271,20 @@ public class MainActivity extends AppCompatActivity {
             connectedInputStream = in;
             connectedOutputStream = out;
 
+            sbprint = "";
             //приветственная команда
             byte[] bytesToSend = "R0E0Q".getBytes();
-            write(bytesToSend);
+            write(bytesToSend, 5);
+
+            //читаем на случай мусора
+            try {
+                int avBytes = connectedInputStream.available();
+                if (avBytes > 0) {
+                    connectedInputStream.skip(avBytes);
+                }
+            } catch (IOException e) {
+
+            }
 
             //это listener для слайдеров, будет получать управление когда мы их двигаем
             SeekBar.OnSeekBarChangeListener barCallback = new SeekBar.OnSeekBarChangeListener() {
@@ -300,7 +317,18 @@ public class MainActivity extends AppCompatActivity {
                         resultCom[3] = barBProgress;
                         resultCom[4] = 'Q';
                         //отправляем команду
-                        write(resultCom);
+                        write(resultCom, 5);
+                    } else {
+//                        sbprint = "skipped" + System.getProperty("line.separator") + sbprint;
+//
+//                        runOnUiThread(new Runnable() { // Вывод данных
+//
+//                            @Override
+//                            public void run() {
+//                            Toast.makeText(MainActivity.this, sbprint, Toast.LENGTH_LONG).show();
+////                                logView.setText(sbprint);
+//                            }
+//                        });
                     }
 
                 }
@@ -326,7 +354,10 @@ public class MainActivity extends AppCompatActivity {
                 public void onProgressChanged(SeekBar seekBar, int progress,boolean fromUser) {
                     int val = barFull.getProgress();
                     valueA = (byte)val;
+                    barA.setProgress(val);
                     valueB = (byte)val;
+                    barB.setProgress(val);
+
                     byte[] resultCom = new byte[5];
                     resultCom[0] = 'A';
                     resultCom[1] = valueA;
@@ -334,10 +365,8 @@ public class MainActivity extends AppCompatActivity {
                     resultCom[3] = valueB;
                     resultCom[4] = 'Q';
                     //отправляем команду
-                    write(resultCom);
+                    write(resultCom, 5);
 
-                    barA.setProgress(val);
-                    barB.setProgress(val);
                 }
             };
             barFull.setOnSeekBarChangeListener(barFullCallback);
@@ -403,36 +432,42 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        private void read() throws IOException {
+            //получаем данные
+            byte[] buffer = new byte[5];
+            int bytes = connectedInputStream.read(buffer);
+            if (bytes == 5 && CheckCom(buffer)) {
+                comBuffer = buffer;
+                DisableBars();
+                ExecuteCom(comBuffer);
+            }
+            //дальше для лога
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < bytes; i++) {
+                if (buffer[i] >= 0 && buffer[i] <= 10) {
+                    sb.append(Integer.toString(buffer[i]));
+                } else {
+                    sb.append(new String(buffer, i, 1));
+                }
+            }
+            sbprint = "r:" + sb.toString() + System.getProperty("line.separator") + sbprint;
+
+            runOnUiThread(new Runnable() { // Вывод данных
+
+                @Override
+                public void run() {
+//                            Toast.makeText(MainActivity.this, sbprint, Toast.LENGTH_LONG).show();
+                    logView.setText(sbprint);
+                }
+            });
+        }
+
         @Override
         public void run() { // Приём данных
 
             while (true) {
                 try {
-                    //получаем данные
-                    byte[] buffer = new byte[5];
-                    int bytes = connectedInputStream.read(buffer);
-                    if (bytes == 5 && CheckCom(buffer)) {
-                        comBuffer = buffer;
-                        DisableBars();
-                        ExecuteCom(comBuffer);
-                    }
-
-                    String strIncom = new String(buffer, 0, bytes);
-                    sb.append(strIncom); // собираем символы в строку
-
-                    if (sb.length() == 5) {
-
-                        sbprint = sb.toString();
-                        sb.delete(0, sb.length());
-
-                        runOnUiThread(new Runnable() { // Вывод данных
-
-                            @Override
-                            public void run() {
-                                Toast.makeText(MainActivity.this, sbprint, Toast.LENGTH_LONG).show();
-                            }
-                        });
-                    }
+                    read();
                 } catch (IOException e) {
                     break;
                 }
@@ -440,13 +475,32 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-        public void write(byte[] buffer) {
+        public void write(byte[] buffer, int len) {
             try {
-                connectedOutputStream.write(buffer);
+                connectedOutputStream.write(buffer, 0, len);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < len; i++) {
+                if (buffer[i] >= 0 && buffer[i] <= 10) {
+                    sb.append(Integer.toString(buffer[i]));
+                } else {
+                    sb.append(new String(buffer, i, 1));
+                }
+            }
+            //дальше для лога
+            sbprint = "w:" + sb.toString() + System.getProperty("line.separator") + sbprint;
+            runOnUiThread(new Runnable() { // Вывод данных
+
+                @Override
+                public void run() {
+//                            Toast.makeText(MainActivity.this, sbprint, Toast.LENGTH_LONG).show();
+                    logView.setText(sbprint);
+                }
+            });
         }
 
     }

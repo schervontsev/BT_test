@@ -17,6 +17,7 @@
         android:background="#e7e7e5"
         android:visibility="invisible">
 
+
         <Button
             android:id="@+id/ReconnectButton"
             android:layout_width="wrap_content"
@@ -72,6 +73,11 @@
                 android:progress="0" />
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/logView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="asdfwrwerwerwerew \n asdasdas" />
     </FrameLayout>
 
     <ListView
