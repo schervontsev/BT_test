@@ -57,10 +57,14 @@ public class MainActivity extends AppCompatActivity {
     private int comSize = 0;
     byte valueA = 0;
     byte valueB = 0;
+    boolean barsEnabled = true;
 
     public VerticalSeekBar barA, barB, barFull;
     public TextView logView;
 
+    boolean useAscii = false; //использовать ascii символы для чисел (для отладки)
+    byte minNum = 0;
+    byte maxNum = 10;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +76,10 @@ public class MainActivity extends AppCompatActivity {
         barFull = (VerticalSeekBar)findViewById(R.id.vertical_SeekbarFull);
         logView = (TextView)findViewById(R.id.logView);
 
+        if (useAscii) { //для отладки
+            minNum = '0';
+            maxNum = '9';
+        }
 
         listViewPairedDevice = (ListView)findViewById(R.id.pairedlist);
 
@@ -272,6 +280,7 @@ public class MainActivity extends AppCompatActivity {
             connectedOutputStream = out;
 
             sbprint = "";
+            DisableBars();
             //приветственная команда
             byte[] bytesToSend = "R0E0Q".getBytes();
             write(bytesToSend, 5);
@@ -307,7 +316,7 @@ public class MainActivity extends AppCompatActivity {
                     byte barBProgress = (byte)barB.getProgress();
 
                     //отправляем команду только если значение поменялось
-                    if (barAProgress != valueA || barBProgress != valueB) {
+                    if (barsEnabled && (barAProgress != valueA || barBProgress != valueB)) {
                         valueA = barAProgress;
                         valueB = barBProgress;
                         byte[] resultCom = new byte[5];
@@ -378,7 +387,7 @@ public class MainActivity extends AppCompatActivity {
                     return b == 'A';
                 case 1:
                 case 3:
-                    return b >= 0 && b <= 10;
+                    return b >= minNum && b <= maxNum;
                 case 2:
                     return b == 'B';
                 case 4:
@@ -390,22 +399,26 @@ public class MainActivity extends AppCompatActivity {
 
         //Проверяет валидность команды. Не проверяет границы массива!
         private boolean CheckCom(byte[] buffer) {
-            return buffer[0] == 'A' && buffer[1] >= 0 && buffer[1] <= 10
-                    && buffer[2] == 'B' && buffer[3] >= 0 && buffer[3] <= 10
+            return buffer[0] == 'A' && buffer[1] >= minNum && buffer[1] <= maxNum
+                    && buffer[2] == 'B' && buffer[3] >= minNum && buffer[3] <= maxNum
                     && buffer[4] == 'Q';
         }
 
         //Выполняет команду
         private void ExecuteCom(byte[] com) {
             //формат: AxByQ
-            int a = valueA = com[1];
-            int b = valueB = com[3];
+            valueA = com[1];
+            valueB = com[3];
+            if (useAscii) { //для отладки
+                valueA = (byte) Character.getNumericValue(com[1]);
+                valueB = (byte) Character.getNumericValue(com[3]);
+            }
 
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    barA.setProgress(a);
-                    barB.setProgress(b);
+                    barA.setProgress((int)valueA);
+                    barB.setProgress((int)valueB);
                     EnableBars();
                 }
             });
@@ -416,8 +429,10 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    barsEnabled = false;
                     barA.setEnabled(false);
                     barB.setEnabled(false);
+                    barFull.setEnabled(false);
                 }
             });
         }
@@ -428,6 +443,8 @@ public class MainActivity extends AppCompatActivity {
                 public void run() {
                     barA.setEnabled(true);
                     barB.setEnabled(true);
+                    barFull.setEnabled(true);
+                    barsEnabled = true;
                 }
             });
         }
@@ -440,6 +457,42 @@ public class MainActivity extends AppCompatActivity {
                 comBuffer = buffer;
                 DisableBars();
                 ExecuteCom(comBuffer);
+            } else {
+                //на случай если данные пришли по кускам, будем собирать команду в несколько заходов
+                for (int i = 0; i < bytes; i++) {
+                    if (buffer[i] == 'A') {
+                        comBuffer[comSize] = buffer[i];
+                        //получили A, значит начало команды, сбрасываем всё что набрали
+                        comSize = 1;
+                        //и блочим управление
+                        DisableBars();
+                    } else if (CheckComPos(buffer[i], comSize)) {
+                        //пока команда сходится с форматом, пишем
+                        comBuffer[comSize] = buffer[i];
+                        //увеличили размер собранной команды
+                        comSize ++;
+                        //проверяем, не набрали ли команду целиком
+                        if (comSize == 5) {
+                            //команда из 5 символов собралась
+                            if (CheckCom(comBuffer)) {
+                                ExecuteCom(comBuffer);
+                            } else {
+                                //Неверный формат! По идее такого не должно быть.
+                                String strIncom = new String(comBuffer, 0, 5);
+                                sbprint = "wrong com: " + strIncom + System.getProperty("line.separator") + sbprint;
+                                //Toast.makeText(MainActivity.this, "Wrong com! " + strIncom, Toast.LENGTH_LONG).show();
+                                EnableBars();
+                            }
+                            //сбросим сохранённый размер буфера
+                            comSize = 0;
+                        }
+                    } else {
+                        //команда не сходится, сбрасываем и возвращаем управление
+                        comSize = 0;
+                        sbprint = "wrong com, reset buffer" + System.getProperty("line.separator") + sbprint;
+                        EnableBars();
+                    }
+                }
             }
             //дальше для лога
             StringBuilder sb = new StringBuilder();
