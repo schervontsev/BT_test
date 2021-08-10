@@ -451,7 +451,7 @@ public class MainActivity extends AppCompatActivity {
 
         private void read() throws IOException {
             //получаем данные
-            byte[] buffer = new byte[5];
+            byte[] buffer = new byte[512];
             int bytes = connectedInputStream.read(buffer);
             if (bytes == 5 && CheckCom(buffer)) {
                 comBuffer = buffer;
